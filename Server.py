@@ -4,13 +4,14 @@
 # used to stream video from webcam.
 # Athor: Amir Gasmi <argasmi@gmail.com>
 
-
-
-
 import socket
 import time
 import cv2
+import numpy as np
 
+
+BEGIN_SENTENCE = '12345678987654321'
+BEGIN_BYTES = np.array(list(BEGIN_SENTENCE),np.uint8).tobytes()
 MCAST_GRP = '224.1.1.1'
 MCAST_PORT = 5007
 # regarding socket.IP_MULTICAST_TTL
@@ -34,19 +35,19 @@ string = ' this is a big sentence:\r\n \
  and more and more\
  and more and more\r\n\
  end'
-CHUNK = 1024
+CHUNK = 10240 * 5
 strbytes = string.encode('ASCII')
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
 sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, MULTICAST_TTL)
 
-# For Python 3, change next line to 'sock.sendto(b"robot", ...' to avoid the
-# "bytes-like object is required" msg (https://stackoverflow.com/a/42612820)
+
 while True:
     ret,frame = vid.read()
     bytedata = frame.tobytes()
     size = len(bytedata)
-    i = 1024
-    
+    i = CHUNK
+    # send the sync msg
+    sock.sendto(BEGIN_BYTES, (MCAST_GRP, MCAST_PORT)) 
     while (size > 0):
         sock.sendto(bytedata[i-CHUNK:i], (MCAST_GRP, MCAST_PORT))
         i = i + CHUNK

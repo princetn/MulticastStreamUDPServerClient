@@ -2,12 +2,16 @@
 # a multicast client, this was developed to 
 # experiment with multicast. OpenCv & Socket are
 # used to stream video from webcam.
-# Athor: Amir Gasmi <argasmi@gmail.com>
+# Author: Amir Gasmi <argasmi@gmail.com>
 
 import socket
 import struct
 import cv2
 import numpy as np
+
+
+BEGIN_SENTENCE = '12345678987654321'
+BEGIN_BYTES = np.array(list(BEGIN_SENTENCE),np.uint8).tobytes()
 
 
 
@@ -26,26 +30,33 @@ else:
 mreq = struct.pack("4sl", socket.inet_aton(MCAST_GRP), socket.INADDR_ANY)
 
 sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
-sync = True
-buffer_size = 1024
+
+buffer_size = 10240 * 5 
+error = 0
+success = 1
 while True:
     frame_size = 921600
     databyte = b""
-  # For Python 3, change next line to "print(sock.recv(10240))"
+  # Sync loop
+    while(True):
+        if BEGIN_BYTES == sock.recv(buffer_size)[0:17]:
+            print("here")
+            break
+
     while(frame_size >0):
-        buf = sock.recv(buffer_size)
-        if(sync ):
-            if(len(buf) < buffer_size):
-                sync = True
-                break
-        
-        databyte = b"".join([databyte,buf])
+        databyte = b"".join([databyte,sock.recv(buffer_size)])
         frame_size = frame_size -buffer_size
-        
-    data = np.frombuffer(databyte, dtype=np.uint8)
-    frame_matrix = np.array(data)
-    frame_matrix = np.reshape(frame_matrix, (480, 640,3))
-    cv2.imshow("Video Stream",frame_matrix)
+    print(len(databyte),frame_size) 
+    if(len(databyte) == 921600):
+        data = np.frombuffer(databyte, dtype=np.uint8)
+        frame_matrix = np.array(data)
+        frame_matrix = np.reshape(frame_matrix, (480, 640,3))
+        cv2.imshow("Video Stream",frame_matrix)
+        success = success + 1 
+    else:
+        error = error + 1
+    print("Rate of error is: ",error/success *100 )
+    
     if cv2.waitKey(1) & 0xFF == ord('q'): 
         break
   
